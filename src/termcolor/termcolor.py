@@ -98,7 +98,7 @@ RESET = "\033[0m"
 
 
 def _can_do_colour(
-    *, no_color: bool | None = None, force_color: bool | None = None
+    *, no_color: bool | None = None, force_color: bool | None = None, file
 ) -> bool:
     """Check env vars and for tty/dumb terminal"""
     # First check overrides:
@@ -119,6 +119,14 @@ def _can_do_colour(
         return False
     if "FORCE_COLOR" in os.environ:
         return True
+
+    if file is not None and file.name == "<stderr>":
+        return (
+            hasattr(sys.stderr, "isatty")
+            and sys.stderr.isatty()
+            and os.environ.get("TERM") != "dumb"
+        )
+
     return (
         hasattr(sys.stdout, "isatty")
         and sys.stdout.isatty()
@@ -134,6 +142,7 @@ def colored(
     *,
     no_color: bool | None = None,
     force_color: bool | None = None,
+    file = None
 ) -> str:
     """Colorize text.
 
@@ -154,7 +163,7 @@ def colored(
         colored('Hello, World!', 'red', 'on_black', ['bold', 'blink'])
         colored('Hello, World!', 'green')
     """
-    if not _can_do_colour(no_color=no_color, force_color=force_color):
+    if not _can_do_colour(no_color=no_color, force_color=force_color, file=file):
         return text
 
     fmt_str = "\033[%dm%s"
@@ -185,6 +194,10 @@ def cprint(
 
     It accepts arguments of print function.
     """
+    try:
+        file = kwargs["file"] # <class '_io.TextIOWrapper'>
+    except KeyError:
+        file = None
 
     print(
         (
@@ -195,6 +208,7 @@ def cprint(
                 attrs,
                 no_color=no_color,
                 force_color=force_color,
+                file=file,
             )
         ),
         **kwargs,
